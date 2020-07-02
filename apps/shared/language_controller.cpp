@@ -18,8 +18,7 @@ LanguageController::LanguageController(Responder * parentResponder, KDCoordinate
 
 void LanguageController::resetSelection() {
   m_selectableTableView.deselectTable();
-  int index = (int)GlobalPreferences::sharedGlobalPreferences()->language()-1;
-  selectCellAtLocation(0, index);
+  selectCellAtLocation(0, (int)(GlobalPreferences::sharedGlobalPreferences()->language()));
 }
 
 const char * LanguageController::title() {
@@ -35,12 +34,13 @@ void LanguageController::didBecomeFirstResponder() {
 }
 
 void LanguageController::viewWillAppear() {
+  ViewController::viewWillAppear();
   resetSelection();
 }
 
 bool LanguageController::handleEvent(Ion::Events::Event event) {
   if (event == Ion::Events::OK || event == Ion::Events::EXE) {
-    GlobalPreferences::sharedGlobalPreferences()->setLanguage((I18n::Language)(selectedRow()+1));
+    GlobalPreferences::sharedGlobalPreferences()->setLanguage((I18n::Language)selectedRow());
     /* We need to reload the whole title bar in order to translate both the
      * "Settings" title and the degree preference. */
     AppsContainer::sharedAppsContainer()->reloadTitleBarView();

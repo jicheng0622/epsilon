@@ -15,6 +15,7 @@ app_regression_test_src += $(addprefix apps/regression/model/,\
   logistic_model.cpp \
   model.cpp \
   power_model.cpp \
+  proportional_model.cpp \
   quadratic_model.cpp \
   quartic_model.cpp \
   trigonometric_model.cpp \
@@ -37,7 +38,7 @@ app_regression_src = $(addprefix apps/regression/,\
 )
 
 app_regression_src += $(app_regression_test_src)
-app_src += $(app_regression_src)
+apps_src += $(app_regression_src)
 
 i18n_files += $(addprefix apps/regression/,\
   base.de.i18n\

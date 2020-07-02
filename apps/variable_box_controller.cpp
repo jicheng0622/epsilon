@@ -3,16 +3,16 @@
 #include "shared/continuous_function.h"
 #include <escher/metric.h>
 #include <ion/unicode/utf8_decoder.h>
+#include <poincare/exception_checkpoint.h>
 #include <poincare/layout_helper.h>
 #include <poincare/matrix_layout.h>
 #include <poincare/preferences.h>
 #include <assert.h>
+#include <algorithm>
 
 using namespace Poincare;
 using namespace Shared;
 using namespace Ion;
-
-static inline KDCoordinate maxCoordinate(KDCoordinate x, KDCoordinate y) { return x > y ? x : y; }
 
 VariableBoxController::VariableBoxController() :
   NestedMenuController(nullptr, I18n::Message::Variables),
@@ -20,6 +20,9 @@ VariableBoxController::VariableBoxController() :
   m_lockPageDelete(Page::RootMenu),
   m_firstMemoizedLayoutIndex(0)
 {
+  for (int i = 0; i < k_maxNumberOfDisplayedRows; i++) {
+    m_leafCells[i].setParentResponder(&m_selectableTableView);
+  }
 }
 
 void VariableBoxController::viewWillAppear() {
@@ -116,6 +119,7 @@ void VariableBoxController::willDisplayCellForIndex(HighlightCell * cell, int in
   Layout symbolLayout = LayoutHelper::String(symbolName, symbolLength);
   myCell->setLayout(symbolLayout);
   myCell->setAccessoryLayout(expressionLayoutForRecord(record, index));
+  myCell->reloadScroll();
   myCell->reloadCell();
 }
 
@@ -123,7 +127,7 @@ KDCoordinate VariableBoxController::rowHeight(int index) {
   if (m_currentPage != Page::RootMenu) {
     Layout layoutR = expressionLayoutForRecord(recordAtIndex(index), index);
     if (!layoutR.isUninitialized()) {
-      return maxCoordinate(layoutR.layoutSize().height()+k_leafMargin, Metric::ToolboxRowHeight);
+      return std::max<KDCoordinate>(layoutR.layoutSize().height()+k_leafMargin, Metric::ToolboxRowHeight);
     }
   }
   return NestedMenuController::rowHeight(index);
@@ -231,7 +235,17 @@ Layout VariableBoxController::expressionLayoutForRecord(Storage::Record record, 
   }
   assert(index >= m_firstMemoizedLayoutIndex && index < m_firstMemoizedLayoutIndex + k_maxNumberOfDisplayedRows);
   if (m_layouts[index-m_firstMemoizedLayoutIndex].isUninitialized()) {
-    m_layouts[index-m_firstMemoizedLayoutIndex] = GlobalContext::LayoutForRecord(record);
+    /* Creating the layout of a very long variable might throw a pool exception.
+     * We want to catch it and return a dummy layout instead, otherwise the user
+     * won't be able to open the variable box again, until she deletes the
+     * problematic variable -> and she has no help to remember its name, as she
+     * can't open the variable box. */
+    Layout result;
+    Poincare::ExceptionCheckpoint ecp;
+    if (ExceptionRun(ecp)) {
+      result = GlobalContext::LayoutForRecord(record);
+    }
+    m_layouts[index-m_firstMemoizedLayoutIndex] = result;
   }
   return m_layouts[index-m_firstMemoizedLayoutIndex];
 }
@@ -268,9 +282,12 @@ void VariableBoxController::resetMemoization() {
 void VariableBoxController::destroyRecordAtRowIndex(int rowIndex) {
   // Destroy the record
   recordAtIndex(rowIndex).destroy();
-  // Shift the memoization
-  assert(rowIndex >= m_firstMemoizedLayoutIndex && rowIndex < m_firstMemoizedLayoutIndex + k_maxNumberOfDisplayedRows);
-  for (int i = rowIndex - m_firstMemoizedLayoutIndex; i < k_maxNumberOfDisplayedRows - 1; i++) {
+  // Shift the memoization if needed
+  if (rowIndex >= m_firstMemoizedLayoutIndex + k_maxNumberOfDisplayedRows) {
+    // The deleted row is after the memoization
+    return;
+  }
+  for (int i = std::max(0, rowIndex - m_firstMemoizedLayoutIndex); i < k_maxNumberOfDisplayedRows - 1; i++) {
     m_layouts[i] = m_layouts[i+1];
   }
   m_layouts[k_maxNumberOfDisplayedRows - 1] = Layout();

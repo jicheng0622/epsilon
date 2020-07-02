@@ -1,6 +1,5 @@
 ---
-title: Installing the SDK &mdash; Software Engineering
-layout: breadcrumb
+title: Installing the SDK
 breadcrumb: SDK
 ---
 # Build and run your own version of Epsilon
@@ -55,7 +54,7 @@ git clone https://github.com/numworks/epsilon.git
 
 ## Run Epsilon on your computer
 
-Once the SDK has been installed, just open your terminal (Msys2, Terminal.app, xterm, etc...) and type the following commands:
+Once the SDK has been installed, just open your terminal (Msys2, Terminal.app, xterm…) and type the following commands:
 
 ```
 make PLATFORM=simulator clean

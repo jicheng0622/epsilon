@@ -16,8 +16,6 @@ class App;
 
 class ConsoleController : public ViewController, public ListViewDataSource, public SelectableTableViewDataSource, public SelectableTableViewDelegate, public TextFieldDelegate, public MicroPython::ExecutionEnvironment {
 public:
-  static constexpr const KDFont * k_font = KDFont::LargeFont;
-
   ConsoleController(Responder * parentResponder, App * pythonDelegate, ScriptStore * scriptStore
 #if EPSILON_GETOPT
       , bool m_lockOnConsole
@@ -40,6 +38,7 @@ public:
   void didBecomeFirstResponder() override;
   bool handleEvent(Ion::Events::Event event) override;
   ViewController::DisplayParameter displayParameter() override { return ViewController::DisplayParameter::WantsMaximumSpace; }
+  TELEMETRY_ID("Console");
 
   // ListViewDataSource
   int numberOfRows() const override;
@@ -61,9 +60,11 @@ public:
   bool textFieldDidAbortEditing(TextField * textField) override;
 
   // MicroPython::ExecutionEnvironment
-  void displaySandbox() override;
-  void hideSandbox() override;
+  ViewController * sandbox() override { return &m_sandboxController; }
   void resetSandbox() override;
+  void displayViewController(ViewController * controller) override;
+  void hideAnyDisplayedViewController() override;
+  void refreshPrintOutput() override;
   void printText(const char * text, size_t length) override;
   const char * inputText(const char * prompt) override;
 
@@ -78,15 +79,17 @@ private:
   static constexpr size_t k_maxImportCommandSize = 5 + 9 + TextField::maxBufferSize(); // strlen(k_importCommand1) + strlen(k_importCommand2) + TextField::maxBufferSize()
   static constexpr int LineCellType = 0;
   static constexpr int EditCellType = 1;
-  static constexpr int k_numberOfLineCells = 15; // May change depending on the screen height
+  static constexpr int k_numberOfLineCells = (Ion::Display::Height - Metric::TitleBarHeight) / 14 + 2; // 14 = KDFont::SmallFont->glyphSize().height()
+  // k_numberOfLineCells = (240 - 18)/14 ~ 15.9. The 0.1 cell can be above and below the 15 other cells so we add +2 cells.
   static constexpr int k_outputAccumulationBufferSize = 100;
+  bool isDisplayingViewController();
+  void reloadData(bool isEditing);
   void flushOutputAccumulationBufferToStore();
   void appendTextToOutputAccumulationBuffer(const char * text, size_t length);
   void emptyOutputAccumulationBuffer();
   size_t firstNewLineCharIndex(const char * text, size_t length);
   StackViewController * stackViewController();
   App * m_pythonDelegate;
-  int m_rowHeight;
   bool m_importScriptsWhenViewAppears;
   ConsoleStore m_consoleStore;
   SelectableTableView m_selectableTableView;

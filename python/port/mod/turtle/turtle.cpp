@@ -73,7 +73,7 @@ void Turtle::left(mp_float_t angle) {
 
 void Turtle::circle(mp_int_t radius, mp_float_t angle) {
   mp_float_t oldHeading = heading();
-  mp_float_t length = (angle > 0 ? 1 : -1) * angle * k_headingScale * radius;
+  mp_float_t length = std::fabs(angle * k_headingScale * radius);
   if (length > 1) {
     for (int i = 1; i < length; i++) {
       mp_float_t progress = i / length;
@@ -82,7 +82,7 @@ void Turtle::circle(mp_int_t radius, mp_float_t angle) {
         // Keyboard interruption. Return now to let MicroPython process it.
         return;
       }
-      setHeadingPrivate(oldHeading+angle*progress);
+      setHeadingPrivate(oldHeading+std::copysign(angle*progress, radius));
     }
     forward(1);
     setHeading(oldHeading+angle);
@@ -175,27 +175,6 @@ void Turtle::setVisible(bool visible) {
   }
 }
 
-void Turtle::setColor(const char * color) {
-  constexpr NameColorPair pairs[] = {
-    NameColorPair("blue", KDColorBlue),
-    NameColorPair("red", KDColorRed),
-    NameColorPair("green", Palette::Green),
-    NameColorPair("yellow", KDColorYellow),
-    NameColorPair("brown", Palette::Brown),
-    NameColorPair("black", KDColorBlack),
-    NameColorPair("white", KDColorWhite),
-    NameColorPair("pink", Palette::Pink),
-    NameColorPair("orange", Palette::Orange),
-    NameColorPair("purple", Palette::Purple),
-    NameColorPair("grey", Palette::GreyDark)
-  };
-  for (NameColorPair p : pairs) {
-    if (strcmp(p.name(), color) == 0) {
-      m_color = p.color();
-      return;
-    }
-  }
-}
 
 void Turtle::viewDidDisappear() {
   m_drawn = false;
@@ -377,7 +356,7 @@ void Turtle::drawPaw(PawType type, PawPosition pos) {
   assert(m_underneathPixelBuffer != nullptr);
   KDCoordinate pawOffset = 5;
   constexpr float crawlOffset = 0.6f;
-  constexpr float angles[] = {M_PI_2/2, M_PI_2+M_PI_2/2, -M_PI_2-M_PI_2/2, -M_PI_2/2};
+  constexpr float angles[] = {M_PI_4, 3*M_PI_4, -3*M_PI_4, -M_PI_4};
 
   // Compute the paw offset from the turtle center
   float currentAngle = angles[(int) type];

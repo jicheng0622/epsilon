@@ -2,7 +2,9 @@
 #include "../shared/poincare_helpers.h"
 #include "../shared/text_helpers.h"
 #include "app.h"
+#include <poincare/ieee754.h>
 #include <poincare/preferences.h>
+#include <algorithm>
 #include <cmath>
 #include <assert.h>
 #include <float.h>
@@ -11,9 +13,6 @@ using namespace Poincare;
 using namespace Shared;
 
 namespace Statistics {
-
-static inline float minFloat(float x, float y) { return x < y ? x : y; }
-static inline float maxFloat(float x, float y) { return x > y ? x : y; }
 
 HistogramController::HistogramController(Responder * parentResponder, InputEventHandlerDelegate * inputEventHandlerDelegate, ButtonRowController * header, Store * store, uint32_t * storeVersion, uint32_t * barVersion, uint32_t * rangeVersion, int * selectedBarIndex, int * selectedSeriesIndex) :
   MultipleDataViewController(parentResponder, store, selectedBarIndex, selectedSeriesIndex),
@@ -41,7 +40,7 @@ const char * HistogramController::title() {
 
 bool HistogramController::handleEvent(Ion::Events::Event event) {
   assert(selectedSeriesIndex() >= 0);
-  if (event == Ion::Events::OK) {
+  if (event == Ion::Events::OK || event == Ion::Events::EXE) {
     stackController()->push(histogramParameterController());
     return true;
   }
@@ -70,7 +69,8 @@ void HistogramController::viewWillAppear() {
 }
 
 void HistogramController::willExitResponderChain(Responder * nextFirstResponder) {
-  if (nextFirstResponder == nullptr || nextFirstResponder == tabController()) {
+  if (nextFirstResponder == tabController()) {
+    assert(tabController() != nullptr);
     if (selectedSeriesIndex() >= 0) {
       m_view.dataViewAtIndex(selectedSeriesIndex())->setForceOkDisplay(false);
     }
@@ -191,8 +191,8 @@ void HistogramController::preinitXRangeParameters() {
   float maxValue = -FLT_MAX;
   for (int i = 0; i < Store::k_numberOfSeries; i ++) {
     if (!m_store->seriesIsEmpty(i)) {
-      minValue = minFloat(minValue, m_store->minValue(i));
-      maxValue = maxFloat(maxValue, m_store->maxValue(i));
+      minValue = std::min<float>(minValue, m_store->minValue(i));
+      maxValue = std::max<float>(maxValue, m_store->maxValue(i));
     }
   }
   m_store->setXMin(minValue);
@@ -246,9 +246,14 @@ void HistogramController::initBarParameters() {
   assert(selectedSeriesIndex() >= 0 && m_store->sumOfOccurrences(selectedSeriesIndex()) > 0);
   preinitXRangeParameters();
   m_store->setFirstDrawnBarAbscissa(m_store->xMin());
-  float barWidth = m_store->xGridUnit();
-  if (barWidth <= 0.0f) {
-    barWidth = 1.0f;
+  double barWidth = m_store->xGridUnit();
+  if (barWidth <= 0.0) {
+    barWidth = 1.0;
+  } else {
+    // Truncate the bar width, as we convert from float to double
+    const double precision = 7; // TODO factorize? This is an experimental value, the same as in Expression;;Epsilon<float>()
+    const double logBarWidth = IEEE754<double>::exponentBase10(barWidth);
+    barWidth = ((int)(barWidth * std::pow(10.0, precision - logBarWidth))) * std::pow(10.0, -precision + logBarWidth);
   }
   m_store->setBarWidth(barWidth);
 }

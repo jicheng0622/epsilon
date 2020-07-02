@@ -48,8 +48,33 @@ public class EpsilonActivity extends SDLActivity {
     sTracker = sAnalytics.newTracker("UA-93775823-3");
   }
 
-  public void telemetryEvent(String eventName) {
-    sTracker.setScreenName(eventName);
+  public void telemetryScreen(String screenName) {
+    sTracker.setScreenName(screenName);
     sTracker.send(new HitBuilders.ScreenViewBuilder().build());
   }
+
+  public void telemetryEvent(String category, String action, String label) {
+    sTracker.send(new HitBuilders.EventBuilder()
+      .setCategory(category)
+      .setAction(action)
+      .setLabel(label)
+      .build()
+    );
+  }
+
+  @Override
+  protected void onCreate(Bundle savedInstanceState) {
+    /* This is done to hide the status bar and the bottom navigation buttons.
+     *
+     * In SDLActivity::onCreate, setWindowStyle(false) is called, which means
+     * the fullscreen mode is put to false. We call again the method here with
+     * true, in order not to modify the external sources.
+     *
+     * TODO: This was not needed for v12 of Epsilon, even though
+     * setWindowStyle(false) was already called in SDLActivity::onCreate. Find
+     * out why and make a proper fix? */
+    super.onCreate(savedInstanceState);
+    setWindowStyle(true);
+  }
+
 }
